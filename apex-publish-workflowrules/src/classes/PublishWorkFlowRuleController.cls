@@ -162,7 +162,7 @@ public with sharing class PublishWorkFlowRuleController
         staticResource.cacheControl = 'public';
         String content;
             for (MetadataFile metadatafile: MetadataFiles) {
-                content = content + '\n' + metadatafile.fullName + '\n' + parse(metadatafile.content) + '\n';
+                content += '\n' + parse(metadatafile.content) + '\n';
             }
             
         System.debug(content);
@@ -198,17 +198,22 @@ public with sharing class PublishWorkFlowRuleController
         if (node.getNodeType() == DOM.XMLNodeType.ELEMENT) {
         
             if (node.getText().trim() != '') {
-               result += '{ ' + node.getName();
-            } else {
                 result += node.getName() + ' : ' + node.getText().trim();
-            }
-        
-            for (Dom.XMLNode child: node.getChildElements()) {
-              result += walkThrough(child);
+            } else {
+                result += node.getName() + ' : ';
             }
             
-            result += ' }';
-        
+            Dom.XmlNode[] childElements = node.getChildElements();
+            if (childElements.size() != 0) {
+                result += '{ ';
+                for (Dom.XMLNode child: node.getChildElements()) {
+                  result += walkThrough(child);
+                  result += ', ';
+                }
+                result = result.Substring(0,result.length()-2);
+                result += '} ';  
+            }
+
             return result;
         }
 

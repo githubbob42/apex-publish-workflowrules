@@ -6,7 +6,7 @@ public with sharing class PublishWorkFlowRuleController
     public List<MetadataFile> MetadataFiles { get; set; }
     public String MetadataFileName {get; set;}     
     public String MetadataFileData {get; set;} 
-        
+
     public PageReference init()
     {
         return null;    
@@ -63,7 +63,7 @@ public with sharing class PublishWorkFlowRuleController
         }
         else
         {
-            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Retrieving metadata...'));
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Retrieving Workflow Rules...'));
         }   
 
         return null;
@@ -83,7 +83,7 @@ public with sharing class PublishWorkFlowRuleController
     public PageReference receiveComplete()
     {
         // Completed, cleared Base64 encoded zip data from viewstate
-        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Metadata retrieve completed'));
+        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Publishing of Workflow Rules to Static Resource completed'));
         MetaDataRetrieveZip = null;
         deleteStaticResource();
         createStaticResource();     
@@ -141,12 +141,9 @@ public with sharing class PublishWorkFlowRuleController
     private String walkThrough(DOM.XMLNode node) {
         String result = '';
         if (node.getNodeType() == DOM.XMLNodeType.ELEMENT) {
-        
-            if (node.getText().trim() != '') {
-                result += node.getName() + ' : ' + node.getText().trim();
-            } else {
-                result += node.getName() + ' : ';
-            }
+
+            String value = node.getText().trim();
+            result += node.getName() + ' : ' + formatValue(value);
             
             Dom.XmlNode[] childElements = node.getChildElements();
             if (childElements.size() != 0) {
@@ -163,6 +160,13 @@ public with sharing class PublishWorkFlowRuleController
         }
 
         return '';  //should never reach here
+    }
+
+    private String formatValue(String value) {
+        if (value == '') return 'null';
+        if (value == 'true' || value == 'false') return value;
+        if (value.isNumeric()) return value;
+        return '\'' + value.replace('\'', '\\\'') + '\'';
     }
     
     /**

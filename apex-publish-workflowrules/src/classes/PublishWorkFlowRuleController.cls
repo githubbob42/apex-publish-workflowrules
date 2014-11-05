@@ -4,7 +4,9 @@ public with sharing class PublishWorkFlowRuleController
     public MetadataService.AsyncResult AsyncResult {get; private set;}
     public String MetaDataRetrieveZip { get; private set; }
     public List<MetadataFile> MetadataFiles { get; set; }
-    
+    public String MetadataFileName {get; set;}     
+    public String MetadataFileData {get; set;} 
+        
     public PageReference init()
     {
         return null;    

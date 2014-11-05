@@ -1,4 +1,7 @@
 global with sharing class RemoteSiteSettingsService {
+
+    global static String RemoteSiteSettingName = 'fxCallout-PublishWorkflowRules';
+
     // this method simply tries to query the RemoteSiteSetting object via the MetadataAPI.  If it succeeds, the remote site setting is setup correctly
     global static Boolean checkMetadataAPIConnection()
     {

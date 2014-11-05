@@ -2,6 +2,7 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
         <members>PublishWorkFlowRuleController</members>
+        <members>RemoteSiteSettingsService</members>
         <name>ApexClass</name>
     </types>
     <types>

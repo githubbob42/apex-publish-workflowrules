@@ -7,10 +7,46 @@ public with sharing class PublishWorkFlowRuleController
     public String MetadataFileName {get; set;}     
     public String MetadataFileData {get; set;} 
 
-    public PageReference init()
+    public String Host {get;set;}
+    public String RemoteSiteSettingName {get;set;}
+    public String MetadataResponse {get;set;}
+    public Boolean MetadataConnectionWarning {get;set;}
+        
+    public PageReference checkMetadataAPIConnection()
     {
-        return null;    
+        // Get Host Domain
+        Host = ApexPages.currentPage().getHeaders().get('Host');
+        RemoteSiteSettingName = RemoteSiteSettingsService.RemoteSiteSettingName;
+
+        // Attempt to connect to the Metadata API
+        MetadataConnectionWarning = false;
+        if(!RemoteSiteSettingsService.checkMetadataAPIConnection())
+        {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error, 'Unable to connect to the Salesforce Metadata API.'));
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error, 'A Remote Site Setting must be created in your org before you can use this tool.'));
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error, 'Press the Create Remote Site Setting button to perform this step or refer to the post install step below to perform this manually.'));
+            MetadataConnectionWarning = true;
+        }
+        
+        return null;                
     }
+    
+    public PageReference displayMetadataResponse()
+    {
+        // Display the response from the client side Metadata API callout
+        if(metadataResponse.length()==0)
+        {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Remote Site Setting ' + RemoteSiteSettingName + ' has been created.' ));
+            MetadataConnectionWarning = false;
+        }
+        else
+        {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Error, metadataResponse));
+            MetadataConnectionWarning = true;
+        }
+        return null;
+    }   
+
         
     public PageReference retrieveMetadataItem()
     {       

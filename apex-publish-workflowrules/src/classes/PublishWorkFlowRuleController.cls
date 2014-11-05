@@ -1,4 +1,3 @@
-
 public with sharing class PublishWorkFlowRuleController
 {
     public MetadataService.AsyncResult AsyncResult {get; private set;}

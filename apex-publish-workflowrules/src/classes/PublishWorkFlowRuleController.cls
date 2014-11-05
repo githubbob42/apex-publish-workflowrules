@@ -1,72 +1,15 @@
 
 public with sharing class PublishWorkFlowRuleController
 {
-    public List<SelectOption> MetaDataTypes {get; set;}
-    public String MetaDataType {get; set;}      
-    public List<SelectOption> MetaDataItems {get; set;}
-    public String MetaDataFolder {get; set;} 
-    public String MetaDataItem {get; set;}  
-    public String MetadataFileName {get; set;}
-    public String MetadataFileData {get; set;}
     public MetadataService.AsyncResult AsyncResult {get; private set;}
-    public String MetaDataRetrieveZip { get; private set; } 
-    public List<MetadataFile> MetadataFiles { get; set; }       
+    public String MetaDataRetrieveZip { get; private set; }
+    public List<MetadataFile> MetadataFiles { get; set; }
     
     public PageReference init()
     {
-        // List available Metadata Types via the 'describeMetadata' API call
-        MetadataService.MetadataPort service = createService();                 
-        MetadataService.DescribeMetadataResult describeResult = service.describeMetadata(26);
-        List<String> metadataTypeNames = new List<String>();
-        for(MetadataService.DescribeMetadataObject metadataObject : describeResult.metadataObjects)
-        {
-            metadataTypeNames.add(metadataObject.xmlName);
-            // Include child Metadata Types (such as CustomField, ValidationRule etc..)
-            if(metadataObject.childXmlNames!=null)
-                for(String childXmlName : metadataObject.childXmlNames)
-                    if(childXmlName!=null)
-                        metadataTypeNames.add(childXmlName);
-        }   
-
-        // Sort Metadata Types
-        metadataTypeNames.sort();
-        MetaDataTypes = new List<SelectOption>();               
-        for(String metadataTypeName : metadataTypeNames)
-            MetaDataTypes.add(new SelectOption(metadataTypeName, metadataTypeName));
-                    
-        // Default to first Metadata Type returned  
-        MetaDataType = MetaDataTypes[0].getValue();             
-        // Retrieve Metadata items for the selected Metadata Type
-        listMetadataItems();        
         return null;    
     }
-    
-    public PageReference listMetadataItems()
-    {
-        // List Metadata items for the selected Metadata Type
-        MetaDataItems = new List<SelectOption>();       
-        MetadataService.MetadataPort service = createService();             
-        List<MetadataService.ListMetadataQuery> queries = new List<MetadataService.ListMetadataQuery>();        
-        MetadataService.ListMetadataQuery queryLayout = new MetadataService.ListMetadataQuery();
-        queryLayout.folder = MetaDataFolder;
-        queryLayout.type_x = MetaDataType;
-        queries.add(queryLayout);       
-        MetadataService.FileProperties[] fileProperties = service.listMetadata(queries, 25);
         
-        // Sort
-        List<String> fullNames = new List<String>();
-        if(fileProperties!=null)
-        {
-            for(MetadataService.FileProperties fileProperty : fileProperties)
-                fullNames.add(fileProperty.fullName);
-            fullNames.sort();
-            for(String fullName : fullNames)
-                MetaDataItems.add(new SelectOption(fullName,EncodingUtil.urlDecode(fullName, 'UTF-8')));
-        }
-
-        return null;    
-    }
-    
     public PageReference retrieveMetadataItem()
     {       
         ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Retrieving metadata...'));

@@ -121,7 +121,8 @@ public with sharing class PublishWorkFlowRuleController
         ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Publishing of Workflow Rules to Static Resource completed'));
         MetaDataRetrieveZip = null;
         deleteStaticResource();
-        createStaticResource();     
+        String content = parseFiles();
+        createStaticResource(content);     
         return null;
     }
     
@@ -130,22 +131,16 @@ public with sharing class PublishWorkFlowRuleController
         MetadataService.MetadataPort service = new MetadataService.MetadataPort();
         service.SessionHeader = new MetadataService.SessionHeader_element();
         service.SessionHeader.sessionId = UserInfo.getSessionId();
-        return service;     
+        return service;
     }   
     
-    public void createStaticResource()
+    public void createStaticResource(String content)
     {
         MetadataService.MetadataPort service = createService();     
         MetadataService.StaticResource staticResource = new MetadataService.StaticResource();
         staticResource.fullName = 'MobileWorkflowRules';
         staticResource.contentType = 'text';
         staticResource.cacheControl = 'public';
-        String content;
-            for (MetadataFile metadatafile: MetadataFiles) {
-                content += '\n' + parse(metadatafile.content) + '\n';
-            }
-            
-        System.debug(content);
         
         staticResource.content = EncodingUtil.base64Encode(Blob.valueOf(content));
         List<MetadataService.SaveResult> results =      
@@ -161,34 +156,81 @@ public with sharing class PublishWorkFlowRuleController
                 'StaticResource', new String[] { 'MobileWorkflowRules' });
     }
     
+    public String getObjectNameFromFileName(String filename) {
+        return filename.split('/')[1].replace('.workflow', '');
+    }
+
+    public String parseFiles() {
+        String content = '';
+        String comma = '';
+        for (MetadataFile metadatafile: MetadataFiles) {
+            if (metadatafile.fullName != 'package.xml') {
+                content += comma + getObjectNameFromFileName(metadatafile.fullName) + ': ' + parse(metadatafile.content);
+                comma = ',\n';
+            }
+        }
+            
+        System.debug(content);
+        return content;
+    }
+
     private String parse(String toParse) {
         System.debug('hello world');
         DOM.Document doc = new DOM.Document();     
         try {
             doc.load(toParse);   
             DOM.XMLNode root = doc.getRootElement();
-            return ' ' + walkThrough(root);
+
+            Map<String, List<String>> sections = new Map<String, List<String>>();
+            for (Dom.XMLNode child: root.getChildElements()) {
+                String sectionName = child.getName();
+                if(!sections.containsKey(sectionName)) sections.put(sectionName, new List<String>());
+                sections.get(sectionName).add(walkThrough(child, sectionName));
+            }
+
+            String results = '';
+            String comma = '';
+            for (String key : sections.keySet()) {
+                String openParen = '', closeParen = '';
+                if (key != 'rules') {
+                    openParen = '[';
+                    closeParen = ']';
+                }
+                results += String.format('{0}{1} : {2}{3}{4}', new string[]{comma, key, openParen, String.join(sections.get(key), ',\n'), closeParen});
+                comma = ',\n';
+            }
+            return '{' + results + '\n}';
+
+
         } catch (System.XMLException e) {  // invalid XML
             return e.getMessage() + ' it broke';
         }
     }
     
-    private String walkThrough(DOM.XMLNode node) {
+    private String indent = '';
+    private String walkThrough(DOM.XMLNode node, String section) {
         String result = '';
         if (node.getNodeType() == DOM.XMLNodeType.ELEMENT) {
-
-            String value = node.getText().trim();
-            result += node.getName() + ' : ' + formatValue(value);
             
+            if (node.getName() != section) {
+                result += node.getName() + ' : ';
+            }
+
             Dom.XmlNode[] childElements = node.getChildElements();
             if (childElements.size() != 0) {
-                result += '{ ';
+                indent += '    ';
+                result += '{\n' + indent;
+                String comma = '';
                 for (Dom.XMLNode child: node.getChildElements()) {
-                  result += walkThrough(child);
-                  result += ', ';
+                  result += comma + walkThrough(child, null);
+                  comma = ',\n' + indent;
                 }
-                result = result.Substring(0,result.length()-2);
-                result += '} ';  
+                indent = indent.substring(0, indent.length() - 4);
+                result += '\n' + indent + '}';
+            }
+            else {
+                String value = node.getText().trim();
+                result += formatValue(value);
             }
 
             return result;

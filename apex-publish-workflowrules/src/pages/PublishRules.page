@@ -1,4 +1,4 @@
-<apex:page controller="PublishWorkflowRuleController" sidebar="false"  standardStylesheets="true" action="{!checkMetadataAPIConnection}">
+<apex:page controller="PublishWorkFlowRuleController" sidebar="false"  standardStylesheets="true" action="{!init}">
 
   <apex:includeScript value="{!URLFOR($Resource.jszip, '/jszip.js')}"/>
   <apex:includeScript value="{!URLFOR($Resource.jszip, '/jszip-load.js')}"/>
@@ -60,22 +60,25 @@ function createRemoteSite()
         </apex:actionFunction>
 
         <apex:sectionHeader title="Publish Workflow Rules"/>     
-        <apex:pageMessages id="messages"/>
-
-        <apex:outputPanel rendered="{!MetadataConnectionWarning}">
-            <h1>Important Post Install Step:</h1> 
-            <p>In order to utlise the features of this tool you need to permit the tool access to the Salesforce Metadata API by adding a <a target="_new" href="http://na1.salesforce.com/help/doc/en/configuring_remoteproxy.htm">Remote Site Setting</a> with this Salesforce Server URL <b>https://{!Host}</b></p>
-            <p> Click the <b>Create Remote Site Setting</b> button to have the tool perform this step for you.</p>
-            <input id="createremotesitebtn" type="button" onclick="createRemoteSite();" value="Create Remote Site Setting"/>
-        </apex:outputPanel>
-        <p><b>Overview:</b> This is a tool that generates a Static Resource of the Workflow Rules to be used by FieldFx Mobile.</p>
 
         <apex:actionPoller action="{!checkAsyncRequest}" interval="5" rerender="form" rendered="{!NOT(ISNULL(AsyncResult))}"/>
 
-        <apex:pageBlock title="Workflow Rules" rendered="{!AND(ISNULL(AsyncResult),ISNULL(MetaDataRetrieveZip))}">
+        <apex:pageBlock title="Workflow Rules">
             <apex:pageBlockButtons >
-                <apex:commandButton value="Publish" action="{!retrieveMetadataItem}" />
+                <apex:commandButton value="Publish" action="{!retrieveWorkflowMetadata}" disabled="{!NOT(AND(AllowPublish, AND(ISNULL(AsyncResult),ISNULL(MetaDataRetrieveZip))))}" />
+                <apex:commandButton value="Check Status" action="{!init}" disabled="{!NOT(AND(ISNULL(AsyncResult),ISNULL(MetaDataRetrieveZip)))}" />
             </apex:pageBlockButtons>
+
+            <apex:pageMessages id="messages"/>
+    
+            <apex:outputPanel rendered="{!MetadataConnectionWarning}">
+                <h1>Important Post Install Step:</h1> 
+                <p>In order to utlise the features of this tool you need to permit the tool access to the Salesforce Metadata API by adding a <a target="_new" href="http://na1.salesforce.com/help/doc/en/configuring_remoteproxy.htm">Remote Site Setting</a> with this Salesforce Server URL <b>https://{!Host}</b></p>
+                <p> Click the <b>Create Remote Site Setting</b> button to have the tool perform this step for you.</p>
+                <input id="createremotesitebtn" type="button" onclick="createRemoteSite();" value="Create Remote Site Setting"/>
+            </apex:outputPanel>
+            <p><b>Overview:</b> This is a tool that generates a Static Resource of the Workflow Rules to be used by FieldFx Mobile.</p>
+    
         </apex:pageBlock>
 
         <apex:outputPanel rendered="{!NOT(ISNULL(MetaDataRetrieveZip))}">

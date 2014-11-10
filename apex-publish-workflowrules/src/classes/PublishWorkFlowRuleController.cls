@@ -160,7 +160,7 @@ public with sharing class PublishWorkFlowRuleController
             // Errors?
             if(retrieveResult.status != 'Succeeded')
             {
-                ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, retrieveResult.errorMessage));
+                ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.ERROR, retrieveResult.errorMessage));
                 AsyncResult = null;             
             }
             else
@@ -194,7 +194,7 @@ public with sharing class PublishWorkFlowRuleController
     public PageReference receiveComplete()
     {
         // Completed, cleared Base64 encoded zip data from viewstate
-        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Publishing of Workflow Rules to Static Resource completed (' + Datetime.now().format() + ')'));
+        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.CONFIRM, 'Publishing of Workflow Rules to Static Resource completed (' + Datetime.now().format() + ')'));
         MetaDataRetrieveZip = null;
         deleteStaticResource();
         String content = parseFiles();

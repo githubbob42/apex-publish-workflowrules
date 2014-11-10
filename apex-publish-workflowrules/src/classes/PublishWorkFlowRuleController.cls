@@ -10,7 +10,37 @@ public with sharing class PublishWorkFlowRuleController
     public String RemoteSiteSettingName {get;set;}
     public String MetadataResponse {get;set;}
     public Boolean MetadataConnectionWarning {get;set;}
+    public Boolean AllowPublish {get;set;}
         
+    public PageReference init()
+    {
+        AllowPublish = false;
+        checkMetadataAPIConnection();
+        if (!MetadataConnectionWarning) {
+            Set<String> wkfs = getObjectsWithWorkflows();
+            if ( wkfs != null && !wkfs.isEmpty() ) {
+                AllowPublish = true;
+                Datetime lmd = getLastModifiedDate();
+                if (lmd != null) {
+                    Set<String> oodWkfs = getOutOfDateWorkflows(lmd);
+                    if ( oodWkfs != null && !oodWkfs.isEmpty() ) {
+                        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Warning, 'One or more Workflow Rules have been created or modified since you last published: (last pusblished: ' + lmd.format() + ')'));
+                    }
+                }
+                else {
+                    ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Warning, 'Workflow Rules have not been published (static resource file does not exist).'));
+                }
+
+            }
+            else {
+                AllowPublish = false;
+                ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'You have no Workflow Rules to publish.'));                    
+            }
+        }
+
+        return null;
+    }
+
     public PageReference checkMetadataAPIConnection()
     {
         // Get Host Domain
@@ -47,9 +77,9 @@ public with sharing class PublishWorkFlowRuleController
     }   
 
         
-    public PageReference retrieveMetadataItem()
+    public PageReference retrieveWorkflowMetadata()
     {       
-        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Retrieving metadata...'));
+        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Retrieving Workflow Rules...'));
         
         // Reset state from any previous requests
         MetaDataRetrieveZip = null;
@@ -64,16 +94,62 @@ public with sharing class PublishWorkFlowRuleController
         retrieveRequest.specificFiles = null;
         retrieveRequest.unpackaged = new MetadataService.Package_x();
         retrieveRequest.unpackaged.types = new List<MetadataService.PackageTypeMembers>();
+        
         MetadataService.PackageTypeMembers packageType = new MetadataService.PackageTypeMembers();
         packageType.name = 'Workflow'; 
-        //packageType.members = new String[] { MetadataFolder, MetaDataItem };
-        packageType.members = new String[] { 'FX5__Job__c', 'FX5__Ticket__c' };
+
+        Set<String> objs = getObjectsWithWorkflows();
+        packageType.members = new List<String>(objs);
+
         retrieveRequest.unpackaged.types.add(packageType);
         AsyncResult = service.retrieve(retrieveRequest);
                         
         return null;    
     }
     
+
+    public Datetime getLastModifiedDate() {
+        ToolingApi toolingAPI = new ToolingApi();
+        List<ToolingAPI.StaticResource> staticResource = 
+            (List<ToolingAPI.StaticResource>)toolingAPI.query('SELECT LastModifiedDate FROM StaticResource Where Name = \'MobileWorkflowRules\' ').records;
+
+        Datetime dt = Datetime.now();
+        if ( staticResource != null && !staticResource.isEmpty() ) {
+            ToolingAPI.StaticResource file = staticResource[0];
+            dt = file.LastModifiedDate;
+        }
+        return dt;
+    }
+    
+    public Set<String> getObjectsWithWorkflows() {
+        ToolingApi toolingAPI = new ToolingApi();
+        List<ToolingAPI.WorkflowRule> workflowRules = 
+            (List<ToolingAPI.WorkflowRule>)toolingAPI.query('SELECT TableEnumOrId, lastModifiedDate FROM WorkflowRule ').records;
+
+        Set<String> objects = new Set<String>();
+        if (workflowRules != null) {
+            for(ToolingAPI.WorkflowRule workflowRule : workflowRules) {
+                if(!objects.contains(workflowRule.TableEnumOrId)) objects.add(workflowRule.TableEnumOrId);
+            }
+        }
+        return objects;
+    }
+
+    public Set<String> getOutOfDateWorkflows(Datetime dt) {
+        ToolingApi toolingAPI = new ToolingApi();
+        List<ToolingAPI.WorkflowRule> workflowRules = 
+            (List<ToolingAPI.WorkflowRule>)toolingAPI.query('SELECT TableEnumOrId, LastModifiedDate FROM WorkflowRule Where LastModifiedDate > ' + json.serialize(dt).replace('"', '') ).records;
+
+        Set<String> objects = new Set<String>();
+        if (workflowRules != null) {
+            for(ToolingAPI.WorkflowRule workflowRule : workflowRules) {
+                if(!objects.contains(workflowRule.TableEnumOrId)) objects.add(workflowRule.TableEnumOrId);
+            }
+        }
+        return objects;
+    }
+
+
     public PageReference checkAsyncRequest()
     {
         // Check the status of the retrieve request
@@ -118,7 +194,7 @@ public with sharing class PublishWorkFlowRuleController
     public PageReference receiveComplete()
     {
         // Completed, cleared Base64 encoded zip data from viewstate
-        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Publishing of Workflow Rules to Static Resource completed'));
+        ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.Info, 'Publishing of Workflow Rules to Static Resource completed (' + Datetime.now().format() + ')'));
         MetaDataRetrieveZip = null;
         deleteStaticResource();
         String content = parseFiles();
@@ -163,87 +239,17 @@ public with sharing class PublishWorkFlowRuleController
     public String parseFiles() {
         String content = '';
         String comma = '';
+        WorkflowParsingService wps = new WorkflowParsingService();
         for (MetadataFile metadatafile: MetadataFiles) {
             if (metadatafile.fullName != 'package.xml') {
-                content += comma + getObjectNameFromFileName(metadatafile.fullName) + ': ' + parse(metadatafile.content);
+                content += comma + getObjectNameFromFileName(metadatafile.fullName) + ' : ' + wps.parseWorkflowRuleXml(metadatafile.content);
                 comma = ',\n';
             }
         }
             
         System.debug(content);
-        return content;
-    }
-
-    private String parse(String toParse) {
-        System.debug('hello world');
-        DOM.Document doc = new DOM.Document();     
-        try {
-            doc.load(toParse);   
-            DOM.XMLNode root = doc.getRootElement();
-
-            Map<String, List<String>> sections = new Map<String, List<String>>();
-            for (Dom.XMLNode child: root.getChildElements()) {
-                String sectionName = child.getName();
-                if(!sections.containsKey(sectionName)) sections.put(sectionName, new List<String>());
-                sections.get(sectionName).add(walkThrough(child, sectionName));
-            }
-
-            String results = '';
-            String comma = '';
-            for (String key : sections.keySet()) {
-                String openParen = '', closeParen = '';
-                if (key != 'rules') {
-                    openParen = '[';
-                    closeParen = ']';
-                }
-                results += String.format('{0}{1} : {2}{3}{4}', new string[]{comma, key, openParen, String.join(sections.get(key), ',\n'), closeParen});
-                comma = ',\n';
-            }
-            return '{' + results + '\n}';
-
-
-        } catch (System.XMLException e) {  // invalid XML
-            return e.getMessage() + ' it broke';
-        }
-    }
-    
-    private String indent = '';
-    private String walkThrough(DOM.XMLNode node, String section) {
-        String result = '';
-        if (node.getNodeType() == DOM.XMLNodeType.ELEMENT) {
-            
-            if (node.getName() != section) {
-                result += node.getName() + ' : ';
-            }
-
-            Dom.XmlNode[] childElements = node.getChildElements();
-            if (childElements.size() != 0) {
-                indent += '    ';
-                result += '{\n' + indent;
-                String comma = '';
-                for (Dom.XMLNode child: node.getChildElements()) {
-                  result += comma + walkThrough(child, null);
-                  comma = ',\n' + indent;
-                }
-                indent = indent.substring(0, indent.length() - 4);
-                result += '\n' + indent + '}';
-            }
-            else {
-                String value = node.getText().trim();
-                result += formatValue(value);
-            }
-
-            return result;
-        }
-
-        return '';  //should never reach here
-    }
-
-    private String formatValue(String value) {
-        if (value == '') return 'null';
-        if (value == 'true' || value == 'false') return value;
-        if (value.isNumeric()) return value;
-        return '\'' + value.replace('\'', '\\\'') + '\'';
+        // return content;
+        return 'window.FX_Mobile_Workflow = {\n    ' + content.replace('\n', '\n    ') + '\n}';
     }
     
     /**
